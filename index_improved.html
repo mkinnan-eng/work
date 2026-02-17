@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>4-Letter Word Game</title>
+  <style>
+    :root {
+      --correct: #6aaa64;
+      --present: #c9b458;
+      --absent: #787c7e;
+      --dark-gray: #3a3a3c;
+      --light-gray: #818384;
+      --bg: #121213;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background-color: var(--bg);
+      color: white;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    header {
+      border-bottom: 1px solid var(--dark-gray);
+      width: 100%;
+      text-align: center;
+      padding: 10px 0;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 2px;
+    }
+
+    #restart {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: 1px solid var(--dark-gray);
+      color: white;
+      border-radius: 8px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    #restart:hover { border-color: var(--light-gray); }
+
+    #game-board {
+      display: grid;
+      grid-template-rows: repeat(6, 1fr);
+      grid-gap: 6px;
+      margin-bottom: 18px;
+      user-select: none;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-gap: 6px;
+    }
+
+    .tile {
+      width: 60px;
+      height: 60px;
+      border: 2px solid var(--dark-gray);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 2rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      line-height: 1;
+      transform-style: preserve-3d;
+      transition: border-color 120ms ease;
+    }
+
+    .tile.filled {
+      border-color: var(--light-gray);
+    }
+
+    .tile[data-state="correct"] { background-color: var(--correct); border-color: var(--correct); }
+    .tile[data-state="present"] { background-color: var(--present); border-color: var(--present); }
+    .tile[data-state="absent"]  { background-color: var(--absent);  border-color: var(--absent); }
+
+    /* Flip animation similar to Wordle */
+    .tile.flip {
+      animation: flip 600ms ease-in-out;
+    }
+    @keyframes flip {
+      0%   { transform: rotateX(0deg); }
+      49%  { transform: rotateX(90deg); }
+      50%  { transform: rotateX(90deg); }
+      100% { transform: rotateX(0deg); }
+    }
+
+    /* Shake row when invalid/too short */
+    .row.shake {
+      animation: shake 380ms ease-in-out;
+    }
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-6px); }
+      80% { transform: translateX(6px); }
+      100% { transform: translateX(0); }
+    }
+
+    #keyboard {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 520px;
+      padding: 0 10px 16px;
+    }
+
+    .kbd-row {
+      display: flex;
+      margin-bottom: 8px;
+      width: 100%;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .key {
+      background-color: var(--light-gray);
+      border: 0;
+      border-radius: 6px;
+      color: white;
+      font-weight: 800;
+      padding: 14px 10px;
+      cursor: pointer;
+      text-transform: uppercase;
+      flex: 1;
+      max-width: 42px;
+      user-select: none;
+      transition: transform 50ms ease;
+    }
+    .key:active { transform: translateY(1px); }
+
+    .key.large { max-width: 78px; flex: 1.6; }
+
+    .key[data-state="correct"] { background-color: var(--correct); }
+    .key[data-state="present"] { background-color: var(--present); }
+    .key[data-state="absent"]  { background-color: var(--dark-gray); }
+
+    #message {
+      position: absolute;
+      top: 12%;
+      background: white;
+      color: black;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-weight: 800;
+      display: none;
+      z-index: 10;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>WORDLE 4</h1>
+    <button id="restart" aria-label="Restart game">Restart</button>
+  </header>
+
+  <div id="message" role="status" aria-live="polite"></div>
+  <div id="game-board" aria-label="Game board"></div>
+
+  <div id="keyboard" aria-label="Keyboard">
+    <div class="kbd-row">
+      <button class="key" data-key="Q">Q</button>
+      <button class="key" data-key="W">W</button>
+      <button class="key" data-key="E">E</button>
+      <button class="key" data-key="R">R</button>
+      <button class="key" data-key="T">T</button>
+      <button class="key" data-key="Y">Y</button>
+      <button class="key" data-key="U">U</button>
+      <button class="key" data-key="I">I</button>
+      <button class="key" data-key="O">O</button>
+      <button class="key" data-key="P">P</button>
+    </div>
+    <div class="kbd-row">
+      <button class="key" data-key="A">A</button>
+      <button class="key" data-key="S">S</button>
+      <button class="key" data-key="D">D</button>
+      <button class="key" data-key="F">F</button>
+      <button class="key" data-key="G">G</button>
+      <button class="key" data-key="H">H</button>
+      <button class="key" data-key="J">J</button>
+      <button class="key" data-key="K">K</button>
+      <button class="key" data-key="L">L</button>
+    </div>
+    <div class="kbd-row">
+      <button class="key large" data-key="ENTER">Enter</button>
+      <button class="key" data-key="Z">Z</button>
+      <button class="key" data-key="X">X</button>
+      <button class="key" data-key="C">C</button>
+      <button class="key" data-key="V">V</button>
+      <button class="key" data-key="B">B</button>
+      <button class="key" data-key="N">N</button>
+      <button class="key" data-key="M">M</button>
+      <button class="key large" data-key="BACKSPACE">⌫</button>
+    </div>
+  </div>
+
+  <script>
+    // A larger 4-letter dictionary (still compact). You can replace/expand this list anytime.
+    // Tip: keep them UPPERCASE.
+    const WORDS = [
+      "ABLE","ACID","ACRE","AGED","ALSO","AREA","ARMY","AWAY","BABY","BACK","BALL","BAND","BANK","BASE","BATH","BEAR",
+      "BEAT","BEEF","BEEN","BELL","BELT","BEST","BILL","BIRD","BLOW","BLUE","BOAT","BODY","BOMB","BOND","BONE","BOOK",
+      "BOOM","BORN","BOSS","BOTH","BOWL","BULK","BURN","BUSH","BUSY","CALL","CALM","CAME","CAMP","CARD","CARE","CASE",
+      "CASH","CAST","CELL","CHAT","CHEF","CHIP","CITY","CLUB","COAL","COAT","CODE","COLD","COME","COOK","COOL","COPE",
+      "COPY","CORE","COST","CREW","CROP","DARK","DATA","DATE","DAWN","DAYS","DEAD","DEAL","DEAN","DEAR","DEBT","DEEP",
+      "DENY","DESK","DIAL","DICK","DIET","DONE","DOOR","DOWN","DRAW","DREW","DROP","DRUG","DUAL","DUE","DUST","DUTY",
+      "EACH","EARN","EASE","EAST","EASY","EDGE","ELSE","EVEN","EVER","EXIT","FACE","FACT","FADE","FAIL","FAIR","FALL",
+      "FARM","FAST","FATE","FEAR","FEED","FEEL","FEET","FELL","FELT","FILE","FILL","FILM","FIND","FINE","FIRE","FIRM",
+      "FISH","FIVE","FLAT","FLEW","FLOW","FOOD","FOOT","FORD","FORM","FORT","FOUR","FREE","FROM","FUEL","FULL","FUND",
+      "GAIN","GAME","GATE","GAVE","GEAR","GIRL","GIVE","GLAD","GOAL","GOES","GOLD","GONE","GOOD","GRAY","GREAT","GROW",
+      "HAIR","HALF","HALL","HAND","HANG","HARD","HATE","HAVE","HEAD","HEAR","HEAT","HELD","HELL","HELP","HERE","HERO",
+      "HIDE","HIGH","HILL","HINT","HIRE","HOLD","HOLE","HOLY","HOME","HOPE","HOST","HOUR","HUGE","HUNT","HURT","IDEA",
+      "INTO","IRON","ITEM","JACK","JAZZ","JOIN","JUMP","JUST","KEEP","KICK","KILL","KIND","KING","KNEW","KNOW","LACK",
+      "LADY","LAID","LAND","LAST","LATE","LAWN","LEAD","LEFT","LESS","LIFE","LIFT","LIKE","LINE","LINK","LIST","LIVE",
+      "LOAD","LOAN","LOCK","LOGO","LONG","LOOK","LOST","LOVE","LUCK","MADE","MAIL","MAIN","MAKE","MALE","MANY","MARK",
+      "MASS","MATE","MATH","MEAL","MEAN","MEET","MENU","MERE","MILE","MILK","MIND","MINE","MISS","MODE","MOOD","MOON",
+      "MORE","MOST","MOVE","MUCH","MUST","NAME","NAVY","NEAR","NEED","NEWS","NEXT","NICE","NINE","NONE","NOSE","NOTE",
+      "OKAY","ONCE","ONLY","OPEN","ORAL","OVER","PACK","PAGE","PAID","PAIN","PAIR","PALM","PARK","PART","PASS","PAST",
+      "PATH","PAY","PEAK","PICK","PINK","PIPE","PLAN","PLAY","PLOT","PLUG","PLUS","POLL","POOL","POOR","PORT","POST",
+      "PULL","PURE","PUSH","RACE","RAIL","RAIN","RANK","RATE","READ","REAL","RELY","REST","RICE","RICH","RIDE","RING",
+      "RISE","RISK","ROAD","ROCK","ROLE","ROOF","ROOM","ROOT","ROSE","RULE","RUSH","SAFE","SAID","SAIL","SALE","SALT",
+      "SAME","SAND","SAVE","SEAT","SEED","SEEK","SEEM","SEEN","SELF","SELL","SEND","SENT","SHIP","SHOP","SHOT","SHOW",
+      "SHUT","SIDE","SIGN","SING","SITE","SIZE","SKIN","SLIP","SLOW","SOFT","SOIL","SOLD","SOLE","SOME","SONG","SOON",
+      "SORT","SOUL","SPOT","STAR","STAY","STEP","STOP","SUCH","SURE","TAKE","TALE","TALK","TALL","TANK","TASK","TEAM",
+      "TELL","TEND","TERM","TEST","TEXT","THAN","THAT","THEM","THEN","THEY","THIN","THIS","THUS","TIDE","TINY","TOLD",
+      "TONE","TOOK","TOOL","TOUR","TOWN","TREE","TRIP","TRUE","TUBE","TURN","TWIN","TYPE","UNIT","UPON","USED","USER",
+      "VARY","VAST","VERY","VIEW","VOTE","WAGE","WAIT","WAKE","WALK","WALL","WANT","WARM","WASH","WAVE","WAYS","WEAK",
+      "WEAR","WEEK","WELL","WENT","WEST","WHAT","WHEN","WHOM","WIDE","WIFE","WILD","WILL","WIND","WINE","WING","WIRE",
+      "WISE","WISH","WITH","WOOD","WORD","WORK","YARD","YEAH","YEAR","YOUR","ZERO"
+    ];
+
+    const DICTIONARY = new Set(WORDS);
+
+    const board = document.getElementById("game-board");
+    const restartBtn = document.getElementById("restart");
+
+    let targetWord = "";
+    let currentGuess = "";
+    let currentRow = 0;
+    let gameOver = false;
+    let isRevealing = false;
+
+    function pickTarget() {
+      return WORDS[Math.floor(Math.random() * WORDS.length)];
+    }
+
+    function showMessage(msg, hold=false) {
+      const msgDiv = document.getElementById("message");
+      msgDiv.innerText = msg;
+      msgDiv.style.display = "block";
+      if (!hold) setTimeout(() => (msgDiv.style.display = "none"), 2000);
+    }
+
+    function clearMessage() {
+      const msgDiv = document.getElementById("message");
+      msgDiv.style.display = "none";
+      msgDiv.innerText = "";
+    }
+
+    function buildBoard() {
+      board.innerHTML = "";
+      for (let i = 0; i < 6; i++) {
+        const row = document.createElement("div");
+        row.className = "row";
+        for (let j = 0; j < 4; j++) {
+          const tile = document.createElement("div");
+          tile.className = "tile";
+          row.appendChild(tile);
+        }
+        board.appendChild(row);
+      }
+    }
+
+    function resetKeyboard() {
+      document.querySelectorAll(".key").forEach(k => k.removeAttribute("data-state"));
+    }
+
+    function updateBoardTyping() {
+      const rows = document.querySelectorAll(".row");
+      const tiles = rows[currentRow].querySelectorAll(".tile");
+      for (let i = 0; i < 4; i++) {
+        const ch = currentGuess[i] || "";
+        tiles[i].innerText = ch;
+        tiles[i].classList.toggle("filled", !!ch);
+        // Do not overwrite state during typing
+      }
+    }
+
+    function shakeCurrentRow() {
+      const rowEl = document.querySelectorAll(".row")[currentRow];
+      rowEl.classList.remove("shake");
+      // force reflow
+      void rowEl.offsetWidth;
+      rowEl.classList.add("shake");
+    }
+
+    function handleInput(key) {
+      if (gameOver || isRevealing) return;
+
+      if (key === "ENTER") {
+        submitGuess();
+        return;
+      }
+
+      if (key === "BACKSPACE" || key === "BACK") {
+        currentGuess = currentGuess.slice(0, -1);
+        updateBoardTyping();
+        return;
+      }
+
+      if (currentGuess.length < 4 && /^[A-Z]$/.test(key)) {
+        currentGuess += key;
+        updateBoardTyping();
+      }
+    }
+
+    function computeStates(guess, target) {
+      const guessArr = guess.split("");
+      const targetArr = target.split("");
+      const states = Array(4).fill("absent");
+
+      // First pass: correct
+      guessArr.forEach((letter, i) => {
+        if (letter === targetArr[i]) {
+          states[i] = "correct";
+          targetArr[i] = null;
+        }
+      });
+
+      // Second pass: present
+      guessArr.forEach((letter, i) => {
+        if (states[i] !== "correct" && targetArr.includes(letter)) {
+          states[i] = "present";
+          targetArr[targetArr.indexOf(letter)] = null;
+        }
+      });
+
+      return states;
+    }
+
+    function promoteKeyState(letter, state) {
+      const key = document.querySelector(`.key[data-key="${letter}"]`);
+      if (!key) return;
+
+      const currentState = key.getAttribute("data-state");
+      // keep best state: correct > present > absent
+      const rank = { correct: 3, present: 2, absent: 1, null: 0 };
+      const curRank = rank[currentState] ?? 0;
+      const nextRank = rank[state] ?? 0;
+
+      if (nextRank > curRank) key.setAttribute("data-state", state);
+    }
+
+    async function revealRow(guess, states) {
+      isRevealing = true;
+
+      const rows = document.querySelectorAll(".row");
+      const tiles = rows[currentRow].querySelectorAll(".tile");
+      const letters = guess.split("");
+
+      for (let i = 0; i < 4; i++) {
+        const tile = tiles[i];
+        tile.classList.remove("flip");
+        void tile.offsetWidth; // reflow to restart animation
+
+        // Start flip
+        tile.classList.add("flip");
+
+        // At midpoint of flip, apply state + keyboard
+        await new Promise(r => setTimeout(r, 300));
+        tile.setAttribute("data-state", states[i]);
+        promoteKeyState(letters[i], states[i]);
+
+        // Wait for flip to finish before next tile
+        await new Promise(r => setTimeout(r, 300));
+      }
+
+      isRevealing = false;
+    }
+
+    async function submitGuess() {
+      clearMessage();
+
+      if (currentGuess.length !== 4) {
+        showMessage("Too short!");
+        shakeCurrentRow();
+        return;
+      }
+
+      if (!DICTIONARY.has(currentGuess)) {
+        showMessage("Not in word list!");
+        shakeCurrentRow();
+        return;
+      }
+
+      const states = computeStates(currentGuess, targetWord);
+      await revealRow(currentGuess, states);
+
+      if (currentGuess === targetWord) {
+        showMessage("Genius!", true);
+        gameOver = true;
+        return;
+      }
+
+      if (currentRow === 5) {
+        showMessage("Game Over! Word was: " + targetWord, true);
+        gameOver = true;
+        return;
+      }
+
+      currentRow++;
+      currentGuess = "";
+      updateBoardTyping();
+    }
+
+    function initGame() {
+      targetWord = pickTarget();
+      currentGuess = "";
+      currentRow = 0;
+      gameOver = false;
+      isRevealing = false;
+      clearMessage();
+      buildBoard();
+      resetKeyboard();
+      updateBoardTyping();
+      // console.log("Target:", targetWord); // uncomment for debugging
+    }
+
+    // Event listeners
+    window.addEventListener("keydown", (e) => {
+      const k = e.key.toUpperCase();
+      // map physical Enter/Backspace to our keys
+      if (k === "ENTER") handleInput("ENTER");
+      else if (k === "BACKSPACE") handleInput("BACKSPACE");
+      else handleInput(k);
+    });
+
+    document.querySelectorAll(".key").forEach((btn) => {
+      btn.addEventListener("click", () => handleInput(btn.getAttribute("data-key")));
+    });
+
+    restartBtn.addEventListener("click", initGame);
+
+    // Start
+    initGame();
+  </script>
+</body>
+</html>
